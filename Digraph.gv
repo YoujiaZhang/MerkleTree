@@ -1,0 +1,10 @@
+digraph MerkleTree {
+	1636615728.085443 [label="1 2
+childNum:2 depth:1" fillcolor="#FFA500" style=filled]
+	1636615728.085443 -> 1636615728.0850396
+	1636615728.085443 -> 1636615728.085278
+	1636615728.0850396 [label="1
+childNum:0 depth:0" fillcolor="#FFA500" style=filled]
+	1636615728.085278 [label="2
+childNum:0 depth:0" fillcolor="#FFA500" style=filled]
+}
