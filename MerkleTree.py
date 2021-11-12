@@ -1,14 +1,19 @@
-
-from ast import NodeTransformer
 from Crypto.Hash import SHA256
-import math
 from graphviz import Digraph
-import time
 from random import randint
 import copy
+import math
+import time
+
+'''
+创作者：张由甲
+时间：2011.11.3
+
+'''
+
 
 class TreeNode:
-    def __init__(self, value, leftNode=None, rightNode=None, hash=None, leaf=None, childNum=None, depth=None, id=None, father=None, primeNum=None):
+    def __init__(self, value, leftNode=None, rightNode=None, hash=None, childNum=None, depth=None, id=None, father=None, primeNum=None, hashIsRight=True, generation=None,):
         self.value = value         # 节点保存的数据
         self.leftNode = leftNode   # 节点的左孩子
         self.rightNode = rightNode  # 节点的右孩子
@@ -18,6 +23,8 @@ class TreeNode:
         self.id = id               # 唯一的标号
         self.father = father       # 父亲节点
         self.primeNum = primeNum   # 大素数
+        self.hashIsRight = hashIsRight  # 该节点的hash值是否正确
+        self.generation = generation    # 该节点的添加代
 
     def __str__(self):
         return 'Node(value='+self.value+', prime='+self.primeNum+', hash='+self.hash+')'
@@ -31,11 +38,14 @@ class MerkleTree:
     '''
 
     def __init__(self):
+        self.history = 1
+        self.newNodes = []
         self.root = TreeNode(
             value='root',
             childNum=0,
             depth=0,
             id=str(time.time()),
+            generation=self.history,
             primeNum=self.generate_prime_number()
         )
 
@@ -86,8 +96,10 @@ class MerkleTree:
         '''
         功能：构造一颗完全二叉树
         '''
+        # 如果给定构造的节点数据为空，返回Merkle树初始状态
         if len(treeNodeData) == 0:
             return self.root
+
         # 计算能构造一颗完全二叉树的节点数量
         treeDepth = math.ceil(math.log2(len(treeNodeData)))
 
@@ -102,14 +114,17 @@ class MerkleTree:
                 childNum=0,
                 id=str(time.time()),
                 primeNum=self.generate_prime_number(),
+                generation=self.history,
             )
             treeNodeData.append(copyNode)
 
         # 构造所有的中间节点 -> nodeQueue
         nodeQueue = []
         for index in range(0, len(treeNodeData), 2):
-            mergeStrings = treeNodeData[index].value+' '+treeNodeData[index+1].value
-            hashString = self.calculate_hash(treeNodeData[index].hash+treeNodeData[index+1].hash)
+            mergeStrings = treeNodeData[index].value + \
+                ' '+treeNodeData[index+1].value
+            hashString = self.calculate_hash(
+                treeNodeData[index].hash+treeNodeData[index+1].hash)
             mergeNode = TreeNode(
                 value=mergeStrings,
                 hash=hashString,
@@ -118,8 +133,10 @@ class MerkleTree:
                 depth=1,
                 childNum=2,
                 id=str(time.time()),
-                primeNum=str( int(treeNodeData[index].primeNum)*int(treeNodeData[index+1].primeNum))
-                )
+                primeNum=str(
+                    int(treeNodeData[index].primeNum)*int(treeNodeData[index+1].primeNum)),
+                generation=self.history,
+            )
             treeNodeData[index].father = mergeNode
             treeNodeData[index+1].father = mergeNode
             nodeQueue.append(mergeNode)
@@ -128,8 +145,10 @@ class MerkleTree:
         while len(nodeQueue) > 1:
             temp = []
             for index in range(0, len(nodeQueue), 2):
-                mergeStrings = nodeQueue[index].value+' '+nodeQueue[index+1].value
-                hashString = self.calculate_hash(nodeQueue[index].hash+nodeQueue[index+1].hash)
+                mergeStrings = nodeQueue[index].value + \
+                    ' '+nodeQueue[index+1].value
+                hashString = self.calculate_hash(
+                    nodeQueue[index].hash+nodeQueue[index+1].hash)
                 mergeNode = TreeNode(
                     value=mergeStrings,
                     hash=hashString,
@@ -139,8 +158,10 @@ class MerkleTree:
                     leftNode=nodeQueue[index],
                     rightNode=nodeQueue[index+1],
                     id=str(time.time()),
-                    primeNum=str(int(nodeQueue[index].primeNum)*int(nodeQueue[index+1].primeNum))
-                    )
+                    primeNum=str(
+                        int(nodeQueue[index].primeNum)*int(nodeQueue[index+1].primeNum)),
+                    generation=self.history,
+                )
                 nodeQueue[index].father = mergeNode
                 nodeQueue[index+1].father = mergeNode
                 temp.append(mergeNode)
@@ -150,6 +171,10 @@ class MerkleTree:
         return nodeQueue[0]
 
     def build_merkle_tree(self, nodeData, way='filling', sorted=False):
+        if len(nodeData) == 0:
+            print('构建了个寂寞')
+            return
+
         # 将每一个节点数据构造节点
         if sorted == True:
             nodeData = [int(i) for i in nodeData]
@@ -165,28 +190,31 @@ class MerkleTree:
                 if int(rootPrime) == 1:
                     break
                 if int(rootPrime) % int(newNodePrime) == 0 and int(rootPrime) > int(newNodePrime):
-                    print(newNodePrime, ' 重复！！')
+                    # print(newNodePrime, ' 重复！！')
                     continue
                 else:
                     break
             rootPrime = str(int(rootPrime) * int(newNodePrime))
-            print(newNodePrime)
+            thisTime = str(time.time())
             newNode = TreeNode(
                 value=data,
-                hash=self.calculate_hash(data+'+'+newNodePrime),
+                hash=self.calculate_hash(data+newNodePrime+thisTime),
                 depth=0,
                 childNum=0,
-                id=str(time.time()),
+                id=thisTime,
                 primeNum=newNodePrime,
+                generation=self.history,
             )
             treeNodeData.append(newNode)
+            print('节点构造完成：', str(newNode))
 
         if way == 'filling':
             self.root = self.bulid_complete_binary_tree(treeNodeData)
+            self.newNodes = [self.root]
 
         elif way == 'imbalance':
             # 计算能构造一颗完全二叉树的节点数量
-            treeDepth = int(math.log2(len(treeNodeData))) # 向下取整
+            treeDepth = int(math.log2(len(treeNodeData)))  # 向下取整
 
             if treeDepth == 0:
                 offset = 0
@@ -199,16 +227,50 @@ class MerkleTree:
             treeNodeDataSub_1 = [treeNodeData[i] for i in range(0, offset)]
             treeNodeDataSub_2 = [treeNodeData[i] for i in range(offset, len(treeNodeData))]
 
-            print(len(treeNodeDataSub_1))
-            print(len(treeNodeDataSub_2))
+            # print(len(treeNodeDataSub_1))
+            # print(len(treeNodeDataSub_2))
 
             self.root = self.bulid_complete_binary_tree(treeNodeDataSub_1)
-
             # 将剩余的不足2的整数幂的节点，依次插入
             for node in treeNodeDataSub_2:
-                self.insert(node)
+                self.insert(node, addAgain=True)
 
-    def insert(self, node):
+    def add(self, Data):
+        self.history += 1
+        rootPrime = self.root.primeNum
+        # 构造每一个叶子节点
+        treeNodeData = []
+        while True:
+            newNodePrime = self.generate_prime_number()
+            if int(rootPrime) == 1:
+                break
+            if int(rootPrime) % int(newNodePrime) == 0 and int(rootPrime) > int(newNodePrime):
+                # print(newNodePrime, ' 重复！！')
+                continue
+            else:
+                break
+        rootPrime = str(int(rootPrime) * int(newNodePrime))
+        thisTime = str(time.time())
+        newNode = TreeNode(
+            value=Data,
+            hash=self.calculate_hash(Data+newNodePrime+thisTime),
+            depth=0,
+            childNum=0,
+            id=thisTime,
+            primeNum=newNodePrime,
+            generation=self.history,
+        )
+        treeNodeData.append(newNode)
+        for node in treeNodeData:
+            self.insert(node)
+
+        print('节点构造完成：', str(newNode))
+
+    def insert(self, node, addAgain=False):
+        if addAgain == False:
+            self.newNodes = []
+        self.newNodes.append(node)
+
         searchQueue = []
         thisNode = self.root
 
@@ -219,7 +281,6 @@ class MerkleTree:
                 thisNode = searchQueue[0]
                 searchQueue.pop(0)
 
-                # print('父亲',thisNode.depth)
                 if thisNode.leftNode != None and thisNode.leftNode.depth != 0 and 2**thisNode.leftNode.depth != thisNode.leftNode.childNum:
                     searchQueue.append(thisNode.leftNode)
                 if thisNode.rightNode != None and thisNode.rightNode.depth != 0 and 2**thisNode.rightNode.depth**2 != thisNode.rightNode.childNum:
@@ -231,11 +292,49 @@ class MerkleTree:
             # 原先的树已经满了，需要构建新的根，和右分支 #
             # 分两种情况：                          #
             # 一、原先的树不是“满”，而是完全没有       #
+            # 二、第一步完成之后完全缺失右子树         #
             # 二、满树                             #
             #######################################
+
+            if thisNode.value == 'root':
+                # 第一种情况 原先的树不是“满”，而是完全没有
+                # 构造新树根
+                newRoot = TreeNode(
+                    value=node.value,
+                    hash=self.calculate_hash(node.hash),
+                    depth=node.depth+1,
+                    childNum=node.childNum+1,
+                    leftNode=node,
+                    rightNode=None,
+                    id=str(time.time()),
+                    primeNum=str(int(node.primeNum)),
+                    generation=self.history,
+                )
+                thisNode.father = newRoot
+                self.root = newRoot  # 移植成功
+
+                # 记录新加入的节点
+                self.newNodes.append(newRoot)
+                return
+
+            elif thisNode.depth == 1 and thisNode.rightNode == None:
+                print('^^^^^')
+                # 第二种情况 第一步完成之后完全缺失右子树
+                thisNode.value = thisNode.value+' '+node.value
+                thisNode.hash = self.calculate_hash(
+                    thisNode.leftNode.hash+node.hash)
+                thisNode.childNum += 1
+                thisNode.primeNum = str(
+                    int(thisNode.primeNum)*int(node.primeNum))
+
+                thisNode.rightNode = node
+                node.father = thisNode
+                return
+
+            # 第三  种情况 满树
             nowTreeDepth = thisNode.depth
             newright = node
-            for i in range(nowTreeDepth):
+            for _ in range(nowTreeDepth):
                 newright_temp = TreeNode(
                     value=node.value,
                     hash=self.calculate_hash(newright.hash),
@@ -244,7 +343,9 @@ class MerkleTree:
                     childNum=1,
                     id=str(time.time()),
                     primeNum=newright.primeNum,
+                    generation=self.history,
                 )
+                self.newNodes.append(newright_temp)
                 newright.father = newright_temp
                 newright = newright_temp
             # 循环结束 构建右分支完成，并进行添加
@@ -258,13 +359,16 @@ class MerkleTree:
                 leftNode=thisNode,
                 rightNode=newright,
                 id=str(time.time()),
-                primeNum=str(int(thisNode.primeNum)*int(newright.primeNum))
+                primeNum=str(int(thisNode.primeNum)*int(newright.primeNum)),
+                generation=self.history,
             )
+            self.newNodes.append(newRoot)
             thisNode.father = newRoot
             newright.father = newRoot
             self.root = newRoot  # 移植成功
 
         else:
+
             #######################################
             # 在右分支上进行添加节点，补充整棵树        #
             # 分两种情况：                          #
@@ -291,7 +395,9 @@ class MerkleTree:
                         childNum=1,
                         id=str(time.time()),
                         primeNum=newright.primeNum,
+                        generation=self.history,
                     )
+                    self.newNodes.append(newright_temp)
                     newright.father = newright_temp
                     newright = newright_temp
                 # 循环结束 构建右分支完成，并进行添加
@@ -299,6 +405,9 @@ class MerkleTree:
                 thisNode.rightNode = newright
                 newright.father = thisNode
 
+            ######################################
+            # 统一更新每个节点的数据                 #
+            ######################################
             # 自下而上更新添加新节点之后，沿路的节点信息
             while thisNode != None:
                 MergeString = ''
@@ -319,50 +428,48 @@ class MerkleTree:
                 thisNode.primeNum = str(MergePrime)
                 thisNode = thisNode.father
 
-    def merkle_path(self, prime):
+    def merkle_path(self, proofPath):
         '''
-        从叶子到树根的路径称为 Merkle Path ，它可以用来证明事务(string)的存在
+        描述：从叶子到树根的路径称为 Merkle Path ，它可以用来证明事务(string)的存在
+        参数：proofPath 已经构建好的证明路径
         '''
-        searchNode = self.search(prime=int(prime))
-        if searchNode != None:
-            # hisFather = searchNode.father
-            # proofPath = TreeNode(
-            #         value=hisFather.value,
-            #         hash=hisFather.hash,
-            #         primeNum=hisFather.primeNum
-            #         )
-            # child_1 = TreeNode(
-            #         value=searchNode.value,
-            #         hash=searchNode.hash,
-            #         primeNum=searchNode.primeNum
-            #     )
-            # while True:
-            #     child_1 = hisFather
-            #     mergeHash = ''
-            #     if hisFather.leftNode and hisFather.rightNode:
-            #         if hisFather.leftNode == searchNode:
-            #             mergeHash = searchNode.hash+hisFather.rightNode.hash
-            #             proofPath.leftNode = child_1
-            #         else:
-            #             mergeHash = hisFather.leftNode.hash+searchNode.hash
-            #             hisFather.leftNode = None
-            #             proofPath.rightNode = child_1
-            #     else:
-            #         if hisFather.leftNode:
-            #             proofPath.leftNode = child_1
-            #         if hisFather.rightNode:
-            #             proofPath.rightNode = child_1
-            #         mergeHash = searchNode.hash
+        if proofPath == None:
+            print('请检查验证路径的合理性')
+            return
+        queue = [proofPath]
+        thisNode = None
+        while len(queue) != 0:
+            thisNode = queue[0]
+            queue.pop(0)
+            if thisNode.leftNode:
+                queue.append(thisNode.leftNode)
+            if thisNode.rightNode:
+                queue.append(thisNode.rightNode)
 
-            #     print(self.calculate_hash(mergeHash) == hisFather.hash)
+        thisNode = thisNode.father
+        while thisNode != None:
+            mergeHash = ''
+            if thisNode.leftNode:
+                mergeHash = thisNode.leftNode.hash
+            if thisNode.rightNode:
+                mergeHash = mergeHash + thisNode.rightNode.hash
 
-            #     searchNode = hisFather
-            #     hisFather = searchNode.father
-            #     child_1 = proofPath
+            mergeHash = self.calculate_hash(mergeHash)
+            if thisNode.hash == mergeHash:
+                thisNode.hashIsRight = True
+            else:
+                # print('error')
+                thisNode.hashIsRight = False
 
-            #     if hisFather.primeNum == self.root.primeNum:
-            #         break
-            self.show(proofPath)
+            thisNode.hash = mergeHash
+            thisNode = thisNode.father
+
+        dot = self.show(proofPath, proof=True)
+        if proofPath.hashIsRight:
+            dot.attr(label=r'\nMerkle tree is complete')
+        else:
+            dot.attr(label=r'\nMerkle tree has been modified')
+        return dot
 
     def search(self, prime, showNode=False):
         # 保证数据类型正确
@@ -377,47 +484,177 @@ class MerkleTree:
             while copynode.leftNode or copynode.rightNode:
                 if copynode.leftNode and int(copynode.leftNode.primeNum) % int(prime) == 0:
                     copynode = copynode.leftNode
-                    
+
                     if proofNode.rightNode:
                         proofNode.rightNode.leftNode = None
                         proofNode.rightNode.rightNode = None
-
-                    proofNode.rightNode.value = 'leaf'
+                        proofNode.rightNode.value = 'Ref Hash'
+                    proofNode.value = '✱'
                     proofNode = proofNode.leftNode
 
                 elif copynode.rightNode and int(copynode.rightNode.primeNum) % int(prime) == 0:
                     copynode = copynode.rightNode
-                    
+
                     if proofNode.leftNode:
                         proofNode.leftNode.leftNode = None
                         proofNode.leftNode.rightNode = None
-                    proofNode.leftNode.value = 'leaf'
+                        proofNode.leftNode.value = 'Ref Hash'
+                    proofNode.value = '✱'
                     proofNode = proofNode.rightNode
                 else:
                     break
+            proofNode.value = 'Target'
+            proofPath.value = 'Root'
+
         else:
             copynode = None
-            proofNode = None
+            proofPath = None
             print('没有这个节点的信息')
 
         if showNode == True:
             self.show(copynode)
-        
+
         return copynode, proofPath
 
-    def show(self, node=None):
+    def tampering_test(self, proofPath, Index):
+        if proofPath == None:
+            print('请检查验证路径的合理性')
+            return
+        proofPath = copy.deepcopy(proofPath)
+        queue = [proofPath]
+        count = 0
+        thisNode = None
+        while len(queue) != 0:
+            thisNode = queue[0]
+            queue.pop(0)
+            if not(thisNode.leftNode or thisNode.rightNode):
+                count += 1
+            if count == Index:
+                thisNode.value = 'Modified'
+                thisNode.hash = 'chaos'
+                break
+            if thisNode.leftNode:
+                queue.append(thisNode.leftNode)
+            if thisNode.rightNode:
+                queue.append(thisNode.rightNode)
+        return proofPath
+
+    def getTreePrime(self,):
+        allPrime = []
+        queue = [self.root]
+        thisNode = None
+        while len(queue) != 0:
+            thisNode = queue[0]
+            queue.pop(0)
+            if thisNode.leftNode == None and thisNode.rightNode == None:
+                allPrime.append(thisNode.primeNum)
+            if thisNode.leftNode:
+                queue.append(thisNode.leftNode)
+            if thisNode.rightNode:
+                queue.append(thisNode.rightNode)
+        return allPrime
+
+    def compare(self, showHistory=False):
+        dot = self.show()
+        if showHistory == False:
+            for node in self.newNodes:
+                dot.node(node.id, _attributes={'fillcolor': '#FFCDD2'})
+        else:
+            allColor = ['#FFCDD2', '#FFE0B2', '#FFF9C4',
+                        '#C8E6C9', '#B2EBF2', '#BBDEFB', '#E1BEE7']
+            queue = [self.root]
+            thisNode = None
+            while len(queue) != 0:
+                thisNode = queue[0]
+                queue.pop(0)
+                dot.node(thisNode.id, _attributes={
+                    'fillcolor': allColor[abs(thisNode.generation-self.history) % len(allColor)]
+                }
+                )
+                if thisNode.leftNode:
+                    queue.append(thisNode.leftNode)
+                if thisNode.rightNode:
+                    queue.append(thisNode.rightNode)
+        return dot
+    
+    def remove(self, prime):
+        queue = [self.root]
+        thisNode = None
+        while len(queue) != 0:
+            thisNode = queue[0]
+            queue.pop(0)
+            if thisNode.leftNode==None and thisNode.rightNode==None and thisNode.primeNum==prime:
+                break
+            if thisNode.leftNode:
+                queue.append(thisNode.leftNode)
+            if thisNode.rightNode:
+                queue.append(thisNode.rightNode)
+        hisFather = thisNode.father
+        if hisFather.leftNode==thisNode:
+            hisFather.leftNode = None
+        elif hisFather.rightNode==thisNode:
+            hisFather.rightNode = None
+        return
+
+    def show(self, node=None, proof=False):
         if node == None:
             node = self.root
         dot = Digraph(name='MerkleTree', format='png')
-        queue = [node]
 
+        # 标注树的高度
+        for i in range(node.depth+1):
+            dot.node(
+                name=str(i),
+                label='depth : '+str(node.depth-i),
+                _attributes={'color': '#FFFFFF'})
+
+        for i in range(node.depth):
+            dot.edge(str(i), str(i+1), _attributes={'arrowhead': 'none', 'color': '#FFFFFF'})
+
+        queue = [node]
+        count = 0
         while len(queue) != 0:
             temp = []
             for node_i in queue:
-                nodeString = node_i.value+'\n'+'childNum:' + \
-                    str(node_i.childNum)+' depth:'+str(node_i.depth)
+                nodeString = 'childNum:' + str(node_i.childNum)
 
-                dot.node(name=node_i.id, label=nodeString, style='filled', fillcolor='#FFA500')
+                if len(node_i.value) > 8:
+                    strings = str(node_i.value).split(' ')
+                    strsL = len(strings)-1
+                    nodeString = strings[0] + ' ~ ' + \
+                        strings[strsL] + '\n' + nodeString
+                else:
+                    nodeString = node_i.value + '\n' + nodeString
+                node_color = '#FFFFFF'
+
+                if proof == True:
+                    if node_i.value == 'Ref Hash':
+                        node_color = '#FFA500'
+                        nodeString = node_i.value
+
+                    elif node_i.value == 'Target':
+                        node_color = '#BBDEFB'
+                        nodeString = node_i.value
+                    elif node_i.value == 'Modified':
+                        node_color = '#E0E0E0'
+                        nodeString = node_i.value
+                    else:
+                        node_color = '#C8E6C9'
+                        nodeString = '√'
+
+                    if node_i.hashIsRight == False:
+                        node_color = '#FFCDD2'
+                        nodeString = '✕'
+
+                    if not(node_i.leftNode or node_i.rightNode):
+                        count += 1
+                        nodeString = str(count)+'\n'+nodeString
+
+                dot.node(
+                    name=node_i.id,
+                    label=nodeString,
+                    style='filled',
+                    fillcolor=node_color)
 
                 if node_i.leftNode:
                     temp.append(node_i.leftNode)
@@ -428,4 +665,5 @@ class MerkleTree:
                     dot.edge(node_i.id, node_i.rightNode.id)
 
             queue = temp
-        dot.view()
+        # dot.view()
+        return dot
