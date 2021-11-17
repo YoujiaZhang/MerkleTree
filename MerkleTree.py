@@ -5,6 +5,8 @@ import copy
 import math
 import time
 
+from graphviz.dot import node
+
 '''
 创作者：张由甲
 时间：2011.11.3
@@ -19,17 +21,18 @@ class TreeNode:
     '''
 
     def __init__(self, value, leftNode=None, rightNode=None, hash=None, childNum=None, depth=None, id=None, father=None, primeNum=None, hashIsRight=True, generation=None,):
-        self.value = value          # 节点保存的数据
-        self.leftNode = leftNode    # 节点的左孩子
-        self.rightNode = rightNode  # 节点的右孩子
-        self.hash = hash            # hash值
-        self.childNum = childNum    # 节点拥有的孩子数量
-        self.depth = depth          # 节点的高度
-        self.id = id                # 唯一的标号
-        self.father = father        # 父亲节点
-        self.primeNum = primeNum    # 大素数
+        self.value = value              # 节点保存的数据
+        self.leftNode = leftNode        # 节点的左孩子
+        self.rightNode = rightNode      # 节点的右孩子
+        self.hash = hash                # hash值
+        self.childNum = childNum        # 节点拥有的孩子数量
+        self.depth = depth              # 节点的高度
+        self.id = id                    # 唯一的标号
+        self.father = father            # 父亲节点
+        self.primeNum = primeNum        # 大素数
         self.hashIsRight = hashIsRight  # 该节点的hash值是否正确
         self.generation = generation    # 该节点的添加代
+        # self.rm = rm
 
     def __str__(self):
         # 可以打印树中某个节点的信息
@@ -244,7 +247,8 @@ class MerkleTree:
             # 子集1：可以构造一棵完全二叉树
             # 子集2：不足一颗完全二叉树
             treeNodeDataSub_1 = [treeNodeData[i] for i in range(0, offset)]
-            treeNodeDataSub_2 = [treeNodeData[i] for i in range(offset, len(treeNodeData))]
+            treeNodeDataSub_2 = [treeNodeData[i]
+                                 for i in range(offset, len(treeNodeData))]
 
             # print(len(treeNodeDataSub_1))
             # print(len(treeNodeDataSub_2))
@@ -546,7 +550,7 @@ class MerkleTree:
         else:
             thisNode = None
             proofPath = None
-            print('INFO: 没有这个节点的信息')
+            print('INFO: 这棵树上没有这个叶子')
 
         return thisNode, proofPath
 
@@ -554,7 +558,7 @@ class MerkleTree:
         if proofPath == None:
             print('INFO: 请检查验证路径的合理性')
             return
-            
+
         proofPath = copy.deepcopy(proofPath)
         queue = [proofPath]
         count = 0
@@ -595,7 +599,8 @@ class MerkleTree:
             for node in self.newNodes:
                 dot.node(node.id, _attributes={'fillcolor': '#FFCDD2'})
         else:
-            allColor = ['#FFCDD2', '#FFE0B2', '#FFF9C4','#C8E6C9', '#B2EBF2', '#BBDEFB', '#E1BEE7']
+            allColor = ['#FFCDD2', '#FFE0B2', '#FFF9C4',
+                        '#C8E6C9', '#B2EBF2', '#BBDEFB', '#E1BEE7']
             queue = [self.root]
             thisNode = None
             while len(queue) != 0:
@@ -603,7 +608,7 @@ class MerkleTree:
                 queue.pop(0)
                 dot.node(thisNode.id, _attributes={
                     'fillcolor': allColor[abs(thisNode.generation-self.history) % len(allColor)]
-                    }
+                }
                 )
                 if thisNode.leftNode:
                     queue.append(thisNode.leftNode)
@@ -612,22 +617,29 @@ class MerkleTree:
         return dot
 
     def remove(self, prime):
+        '''
+        函数功能：删除节点
+        '''
+        # 不能整除，说明不在这棵树中
         if int(self.root.primeNum) % int(prime) != 0:
             print('INFO: 这棵树上没有这个叶子')
             return
 
+        # 层次遍历，查询满足条件的节点
         queue = [self.root]
         thisNode = None
         while len(queue) != 0:
             thisNode = queue[0]
             queue.pop(0)
             if thisNode.leftNode == None and thisNode.rightNode == None and thisNode.primeNum == str(prime):
+                # 找到了结束搜寻
                 break
             if thisNode.leftNode:
                 queue.append(thisNode.leftNode)
             if thisNode.rightNode:
                 queue.append(thisNode.rightNode)
 
+        # 直接找到它的父亲，断绝父子关系
         hisFather = thisNode.father
         if hisFather.leftNode == thisNode:
             hisFather.leftNode = None
@@ -661,6 +673,8 @@ class MerkleTree:
             hisFather = hisFather.father
 
         # 树根矫正
+        # 解释：
+        #   如果删除操作之后，就剩一个根了，那就回到初始化状态
         if self.root.childNum == 0:
             self.root = TreeNode(
                 value='root',
@@ -671,42 +685,134 @@ class MerkleTree:
                 generation=self.history,
                 primeNum=self.generate_prime_number()
             )
-        # 树根到叶子的路径矫正
+
+        # 树根到叶子的路径矫正 (修正树根)
+        # 解释：
+        #   如果树根 有且只有一个孩子 并且他的高度大于等于2
+        #   那么，我们需要让这个树根向下走，因为当前这个树根
+        #   是多余的，他的孩子可以代替他
         while self.root.depth >= 2 and ((self.root.leftNode != None) ^ (self.root.rightNode != None)):
             if self.root.leftNode:
                 self.root = self.root.leftNode
             elif self.root.rightNode:
                 self.root = self.root.rightNode
             self.root.father = None
+
+        # 删除树中冗余的层  (修正树根)
+        # 解释：
+        #   当删除到一定程度的时候，树中的第i层可能会和第j层
+        #   一样，这就需要我们进行处理 删除冗余的层保证树高
+        queue = [self.root]
+        thisNode = None
+        while len(queue) != 0:
+            A, B = [], []
+            nextLayer = []
+            for node_i in queue:
+                A.append(int(node_i.primeNum))
+
+                if node_i.leftNode and node_i.depth >= 2:
+                    nextLayer.append(node_i.leftNode)
+                if node_i.rightNode and node_i.depth >= 2:
+                    nextLayer.append(node_i.rightNode)
+
+            for node_i in nextLayer:
+                B.append(int(node_i.primeNum))
+
+            if A == B:
+                for i in range(len(queue)):
+                    tempFather = queue[i].father
+                    if tempFather and tempFather.leftNode == queue[i]:
+                        tempFather.leftNode = nextLayer[i]
+                    elif tempFather and tempFather.rightNode == queue[i]:
+                        tempFather.rightNode = nextLayer[i]
+                    nextLayer[i].father = tempFather
+
+                    # 更新数据
+                    MergeString = ''
+                    MergeHash = ''
+                    MergePrime = 1
+                    MergeChild = 0
+                    MergeDepth = 0
+                    if tempFather.leftNode:
+                        MergeString = tempFather.leftNode.value
+                        MergeHash = tempFather.leftNode.hash
+                        MergePrime = int(tempFather.leftNode.primeNum)
+                        MergeChild += tempFather.leftNode.childNum
+                        MergeDepth = tempFather.leftNode.depth + 1
+                    if tempFather.rightNode:
+                        MergeString = MergeString + ' ' + tempFather.rightNode.value
+                        MergeHash = MergeHash + tempFather.rightNode.hash
+                        MergePrime = MergePrime * \
+                            int(tempFather.rightNode.primeNum)
+                        MergeChild += tempFather.rightNode.childNum
+                        MergeDepth = tempFather.rightNode.depth + 1
+
+                    tempFather.childNum = MergeChild
+                    tempFather.value = MergeString
+                    tempFather.hash = self.calculate_hash(MergeHash)
+                    tempFather.primeNum = str(MergePrime)
+                    tempFather.depth = MergeDepth
+
+            queue = nextLayer
+
         return
 
-    def show(self, node=0, proof=False, ):
+    # def calculate_minimum_height(self, node):
+    #     if node == None:
+    #         return 0
+    #
+    #     if node.leftNode == None and node.rightNode == None:
+    #         node.rm = 0
+    #         return 1
+    #
+    #     addYN = 0
+    #     if node.rightNode and node.leftNode:
+    #         addYN = 1
+    #
+    #     L = self.calculate_minimum_height(node.leftNode)
+    #     M = self.calculate_minimum_height(node.rightNode)
+    #     maxLR = max(L,M)
+    #
+    #     node.rm = maxLR
+    #     return maxLR + addYN
+
+    def show(self, node=0, proof=False, showDepth=True, showMinDepth=False, string=None):
+        # 默认值为展示整棵树
         if node == 0:
             node = self.root
-        
+
+        # 如果输入不合法，直接返回
         if node == None:
             return
 
+        # 构建可视化的对象
         dot = Digraph(name='MerkleTree', format='png')
 
-        # 标注树的高度
-        for i in range(node.depth+1):
-            dot.node(
-                name=str(i),
-                label='depth : '+str(node.depth-i),
-                _attributes={'color': '#FFFFFF'})
+        # 展示树的高度
+        if showDepth:
+            # 标注树的高度
+            for i in range(node.depth+1):
+                dot.node(
+                    name=str(i),
+                    label='depth : '+str(node.depth-i),
+                    _attributes={'color': '#FFFFFF'})
 
-        for i in range(node.depth):
-            dot.edge(str(i), str(i+1), _attributes={'arrowhead': 'none', 'color': '#FFFFFF'})
+            for i in range(node.depth):
+                dot.edge(str(i), str(i+1), _attributes={'arrowhead': 'none', 'color': '#FFFFFF'})
 
+        # 使用层次遍历
         queue = [node]
-        countofProof = 0
-        # count = 0
+        countofProof = 0  # 标志用于作证hash的节点序号
+
         while len(queue) != 0:
+            # temp 变量用于存储 某一层（depth=i）的所有节点信息
             temp = []
+
             for node_i in queue:
+                # 现将节点所包含的树叶的个数加进去
                 nodeString = 'childs: ' + str(node_i.childNum)
 
+                # 如果节点的 value 太长，这样不利于显示，所以 “掐头去尾” 的显示
                 if len(node_i.value) > 8:
                     strings = str(node_i.value).split(' ')
                     strsL = len(strings)-1
@@ -714,46 +820,77 @@ class MerkleTree:
                         strings[strsL] + '\n' + nodeString
                 else:
                     nodeString = node_i.value + '\n' + nodeString
+
+                # 可视化节点的默认颜色
                 node_color = '#FFFFFF'
 
+                # 如果是 “证明Merkle路径” 时候用到的，可以为该事务染上直观的颜色
                 if proof == True:
                     if node_i.value == 'Ref Hash':
+                        # 用于佐证的节点 橙色
                         node_color = '#FFA500'
                         nodeString = node_i.value
 
                     elif node_i.value == 'Target':
+                        # “请求者” 需要证明的节点 蓝色
                         node_color = '#BBDEFB'
                         nodeString = node_i.value
+
                     elif node_i.value == 'Modified':
+                        # 被篡改的节点 灰色
                         node_color = '#E0E0E0'
                         nodeString = node_i.value
-                    else:
-                        node_color = '#C8E6C9'
-                        nodeString = '✓'
 
-                    if node_i.hashIsRight == False:
-                        node_color = '#FFCDD2'
-                        nodeString = '✕'
+                    elif node_i.value == '✱':
+                        # 如果为中间连接的节点
+                        # 如果节点的hash值计算的结果 不一致 红色
+                        if node_i.hashIsRight == False:
+                            node_color = '#FFCDD2'
+                            nodeString = '✕'
+                        else:
+                            # 否则 绿色
+                            node_color = '#C8E6C9'
+                            nodeString = '✓'
 
+                    elif node_i.value == 'Root':
+                        # 根节点
+                        if node_i.hashIsRight == False:
+                            node_color = '#FFCDD2'
+                            nodeString = 'Root ✕'
+                        else:
+                            # 否则 绿色
+                            node_color = '#C8E6C9'
+                            nodeString = 'Root ✓'
+
+                    # 叶子节点，为叶子节点标注序号
                     if not(node_i.leftNode or node_i.rightNode):
                         countofProof += 1
                         nodeString = str(countofProof)+'\n'+nodeString
 
-                # count += 1
+                if showMinDepth == True:
+                    nodeString += '\n minD: '+str(node_i.rm)
+                # 可视化对象中添加节点
+                # 设置好上面设置好的相关属性
                 dot.node(
                     name=node_i.id,
                     label=nodeString,
                     style='filled',
                     fillcolor=node_color)
 
+                # 构建与左叶子节点的连接关系
                 if node_i.leftNode:
                     temp.append(node_i.leftNode)
                     dot.edge(node_i.id, node_i.leftNode.id)
 
+                # 构建与右叶子节点的连接关系
                 if node_i.rightNode:
                     temp.append(node_i.rightNode)
                     dot.edge(node_i.id, node_i.rightNode.id)
 
+            # 跳转到下一层
             queue = temp
-        # dot.view()
+
+            if string:
+                dot.attr(label=r'\n'+string)
+                
         return dot
