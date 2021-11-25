@@ -70,7 +70,7 @@ Sometimes it is this tree that we will work with queries on, in two ways.
 - Prove if a data is **not present**
 
 Analysis.
-I was exposed to **RSA** in my undergraduate studies of cryptography. One of the keys to security is the factorization of the large prime $P$. It is easy to verify if a number is a factor of this $P$; but it is difficult to split all the factors of this large prime number. So, I would like to use this method.
+I was exposed to **RSA** in my undergraduate studies of cryptography. One of the keys to security is the factorization of the large prime **P**. It is easy to verify if a number is a factor of this **P**; but it is difficult to split all the factors of this large prime number. So, I would like to use this method.
 - Generate a random prime number for each "leaf"
 - Bottom-up, the "number" of the parent node is the product of the "numbers" of the children.
 
@@ -92,7 +92,7 @@ mt.show(mynode)
 <img src="../images/search.svg"/>
 </div>
 
-The *proofPath* variable holds the **Merkle path** that proves that this node really exists.
+The ***proofPath*** variable holds the **Merkle path** that proves that this node really exists.
 
 ## Merkle path validation
 
