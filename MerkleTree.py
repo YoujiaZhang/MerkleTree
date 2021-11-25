@@ -8,7 +8,7 @@ import time
 from graphviz.dot import node
 
 '''
-创作者：张由甲
+创作者：YoujiaZhang
 时间：2011.11.3
 
 创建一棵 Merkle 树
