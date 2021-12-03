@@ -1,5 +1,5 @@
 # MerkleTree
-[English](readme/README.en.md)
+[English](readme/README.en.md) 如果对你有帮助 给一个star吧~
 
 ## 初始化
 
