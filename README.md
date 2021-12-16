@@ -1,5 +1,13 @@
-# MerkleTree
-[English](readme/README.en.md) 如果对你有帮助 给一个star吧~
+<h1 align="center">MerkleTree · 默克尔树 · 区块链</h1>
+
+<p align="center">
+<img src="https://img.shields.io/badge/made%20by-youjiaZhang-blue.svg" >
+
+<img src="https://badges.frapsoft.com/os/v1/open-source.svg?v=103" >
+</p>
+
+- [English](readme/README.en.md) 
+-  如果对你有帮助 给一个star吧~
 
 ## 初始化
 
