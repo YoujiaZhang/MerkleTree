@@ -1,13 +1,4 @@
-<h1 align="center">MerkleTree · 默克尔树 · 区块链</h1>
-
-<p align="center">
-<img src="https://img.shields.io/badge/made%20by-youjiaZhang-blue.svg" >
-
-<img src="https://badges.frapsoft.com/os/v1/open-source.svg?v=103" >
-</p>
-
-- [English](readme/README.en.md) 
--  如果对你有帮助 给一个star吧~
+# MerkleTree
 
 ## 初始化
 
@@ -65,7 +56,9 @@ mt.compare()
 </div>
 
 图中显示最右边的两个节点为最后一次添加到树中的。我们还可以显示每一次添加节点的情况，同一批加入的节点标注为某一个颜色(纵向)。
-
+```
+mt.compare(showHistory=True)
+```
 <div align=center>
 <img src="images/compare2.svg"/>
 </div>
@@ -78,7 +71,7 @@ mt.compare()
 - 证明一个数据是不是 **不在**
 
 分析：
-本科学习密码学的时候接触到了 **RSA**。其中，安全性的关键在于 大素数 **P** 的因数分解，我们想要验证一个数是不是这个 **P** 的因数，很容易；但是想要拆分出这个大素数的所有因数是很困难的。所以，我就想使用这个方法：
+本科学习密码学的时候接触到了 **RSA**。其中，安全性的关键在于 大素数 $P$ 的因数分解，我们想要验证一个数是不是这个 $P$ 的因数，很容易；但是想要拆分出这个大素数的所有因数是很困难的。所以，我就想使用这个方法：
 - 为每一个 “叶子” 随机生成一个素数
 - 自下而上的，父节点的 “数” 为子节点 “数” 的乘积。
 
@@ -100,7 +93,7 @@ mt.show(mynode)
 <img src="images/search.svg"/>
 </div>
 
-***proofPath*** 变量中存放着证明这个节点真实存在的 **Merkle 路径**。
+*proofPath* 变量中存放着证明这个节点真实存在的 **Merkle 路径**。
 
 ## Merkle 路径验证
 
