@@ -8,7 +8,7 @@
 
 - [English](readme/README.en.md) 
 -  如果对你有帮助 给一个star吧~
-
+- **graphviz version 2.40.1**
 
 ## 初始化
 
